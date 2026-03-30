@@ -9,7 +9,7 @@ import {
   UploadCloud
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type ComponentType, useMemo, useRef, useState, useTransition } from "react";
+import { type ComponentType, useMemo, useRef, useState } from "react";
 
 import { DiscardSessionButton } from "@/components/sessions/discard-session-button";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,8 @@ type PreviewRow = {
   inferredProduct: string | null;
   inferredVariation: string | null;
 };
+
+type PendingAction = "sheet" | "files" | "folder" | "processing" | null;
 
 const pathModes: Array<{ value: PathMode; label: string; description: string }> = [
   {
@@ -83,7 +85,7 @@ export function UploadWorkspace() {
     "Upload a spreadsheet first, then add image files or a folder."
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
   const completion = useMemo(() => {
     const steps = [Boolean(sessionId), acceptedImages > 0];
@@ -188,15 +190,19 @@ export function UploadWorkspace() {
     );
   }
 
-  function runTask(task: () => Promise<void>) {
-    startTransition(() => {
-      task().catch((error) => {
-        const message =
-          error instanceof Error ? error.message : "Something went wrong.";
-        setErrorMessage(message);
-        setStatusMessage(message);
-      });
-    });
+  async function runTask(action: Exclude<PendingAction, null>, task: () => Promise<void>) {
+    setPendingAction(action);
+
+    try {
+      await task();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Something went wrong.";
+      setErrorMessage(message);
+      setStatusMessage(message);
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   function handleStartProcessing() {
@@ -210,7 +216,7 @@ export function UploadWorkspace() {
       return;
     }
 
-    runTask(async () => {
+    void runTask("processing", async () => {
       setStatusMessage("Running fast filename matching and queueing image processing in the background.");
       const response = await fetch("/api/process-session", {
         method: "POST",
@@ -260,6 +266,7 @@ export function UploadWorkspace() {
                   className="mt-4"
                   value={pathMode}
                   onChange={(event) => setPathMode(event.target.value as PathMode)}
+                  disabled={Boolean(pendingAction)}
                 >
                   {pathModes.map((mode) => (
                     <option key={mode.value} value={mode.value}>
@@ -293,26 +300,33 @@ export function UploadWorkspace() {
                 title="Spreadsheet"
                 description=".xlsx, .xls, or .csv"
                 actionLabel={sheetName ? "Replace spreadsheet" : "Choose spreadsheet"}
+                loadingLabel="Parsing spreadsheet..."
                 onClick={() => sheetInputRef.current?.click()}
                 active={Boolean(sessionId)}
+                isLoading={pendingAction === "sheet"}
+                disabled={Boolean(pendingAction) && pendingAction !== "sheet"}
               />
               <UploadCard
                 icon={UploadCloud}
                 title="Files upload"
                 description="Select one image or a batch of images"
                 actionLabel={sessionId ? "Choose files" : "Upload spreadsheet first"}
+                loadingLabel="Uploading files..."
                 onClick={() => filesInputRef.current?.click()}
                 active={acceptedImages > 0}
-                disabled={!sessionId}
+                isLoading={pendingAction === "files"}
+                disabled={!sessionId || Boolean(pendingAction)}
               />
               <UploadCard
                 icon={FolderOpen}
                 title="Folder upload"
                 description="Preserves browser relative paths"
                 actionLabel={sessionId ? "Choose folder" : "Upload spreadsheet first"}
+                loadingLabel="Uploading folder..."
                 onClick={() => folderInputRef.current?.click()}
                 active={acceptedImages > 0}
-                disabled={!sessionId}
+                isLoading={pendingAction === "folder"}
+                disabled={!sessionId || Boolean(pendingAction)}
               />
             </div>
 
@@ -344,14 +358,15 @@ export function UploadWorkspace() {
                     type="button"
                     className="sm:w-auto"
                     onClick={handleStartProcessing}
-                    disabled={isPending || !sessionId || !acceptedImages}
+                    disabled={Boolean(pendingAction) || !sessionId || !acceptedImages}
+                    isLoading={pendingAction === "processing"}
                   >
-                    {isPending ? (
+                    {pendingAction === "processing" ? (
                       <LoaderCircle className="h-4 w-4 animate-spin" />
                     ) : (
                       <Play className="h-4 w-4" />
                     )}
-                    Start processing
+                    {pendingAction === "processing" ? "Processing..." : "Start processing"}
                   </Button>
                 </div>
               </div>
@@ -455,7 +470,7 @@ export function UploadWorkspace() {
             return;
           }
 
-          runTask(() => handleSheetUpload(file));
+          void runTask("sheet", () => handleSheetUpload(file));
           event.currentTarget.value = "";
         }}
       />
@@ -466,7 +481,7 @@ export function UploadWorkspace() {
         multiple
         accept="image/*,.svg,.tif,.tiff"
         onChange={(event) => {
-          runTask(() => handleImageUpload(event.target.files, "files"));
+          void runTask("files", () => handleImageUpload(event.target.files, "files"));
           event.currentTarget.value = "";
         }}
       />
@@ -477,7 +492,7 @@ export function UploadWorkspace() {
         multiple
         {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
         onChange={(event) => {
-          runTask(() => handleImageUpload(event.target.files, "folder"));
+          void runTask("folder", () => handleImageUpload(event.target.files, "folder"));
           event.currentTarget.value = "";
         }}
       />
@@ -490,16 +505,20 @@ function UploadCard({
   title,
   description,
   actionLabel,
+  loadingLabel,
   onClick,
   active,
+  isLoading,
   disabled = false
 }: {
   icon: ComponentType<{ className?: string }>;
   title: string;
   description: string;
   actionLabel: string;
+  loadingLabel: string;
   onClick: () => void;
   active: boolean;
+  isLoading: boolean;
   disabled?: boolean;
 }) {
   return (
@@ -521,9 +540,14 @@ function UploadCard({
         className="mt-4 w-full"
         onClick={onClick}
         disabled={disabled}
+        isLoading={isLoading}
       >
-        <UploadCloud className="h-4 w-4" />
-        {actionLabel}
+        {isLoading ? (
+          <LoaderCircle className="h-4 w-4 animate-spin" />
+        ) : (
+          <Icon className="h-4 w-4" />
+        )}
+        {isLoading ? loadingLabel : actionLabel}
       </Button>
     </div>
   );

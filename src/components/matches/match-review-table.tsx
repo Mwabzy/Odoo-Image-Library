@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ExternalLink, LoaderCircle, RefreshCcw, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 
 import { MatchStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ export function MatchReviewTable({
   const [filter, setFilter] = useState<MatchFilter>("all");
   const [selectedImageIds, setSelectedImageIds] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const visibleItems = useMemo(() => {
     if (filter === "all") {
@@ -45,58 +45,63 @@ export function MatchReviewTable({
     return items.filter((item) => item.status === filter);
   }, [filter, items]);
 
-  function handleOverride(sheetRowId: string) {
+  async function handleOverride(sheetRowId: string) {
     const imageId = selectedImageIds[sheetRowId];
     if (!imageId) {
       setErrorMessage("Choose an extracted image before saving an override.");
       return;
     }
 
-    startTransition(() => {
-      fetch(`/api/session/${sessionId}/override`, {
+    const actionKey = `override:${sheetRowId}`;
+    setPendingAction(actionKey);
+
+    try {
+      const response = await fetch(`/api/session/${sessionId}/override`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ sheetRowId, imageId })
-      })
-        .then(async (response) => {
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.error ?? "Failed to save override.");
-          }
+      });
+      const data = await response.json();
 
-          setErrorMessage(null);
-          router.refresh();
-        })
-        .catch((error) => {
-          setErrorMessage(
-            error instanceof Error ? error.message : "Failed to save override."
-          );
-        });
-    });
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to save override.");
+      }
+
+      setErrorMessage(null);
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to save override."
+      );
+    } finally {
+      setPendingAction(null);
+    }
   }
 
-  function handleRematch() {
-    startTransition(() => {
-      fetch(`/api/session/${sessionId}/rematch`, {
-        method: "POST"
-      })
-        .then(async (response) => {
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.error ?? "Failed to rerun matching.");
-          }
+  async function handleRematch() {
+    setPendingAction("rematch");
 
-          setErrorMessage(null);
-          router.refresh();
-        })
-        .catch((error) => {
-          setErrorMessage(
-            error instanceof Error ? error.message : "Failed to rerun matching."
-          );
-        });
-    });
+    try {
+      const response = await fetch(`/api/session/${sessionId}/rematch`, {
+        method: "POST"
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to rerun matching.");
+      }
+
+      setErrorMessage(null);
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to rerun matching."
+      );
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   return (
@@ -122,13 +127,18 @@ export function MatchReviewTable({
             <option value="needs_review">Needs review</option>
             <option value="duplicate_conflict">Duplicate conflicts</option>
           </Select>
-          <Button variant="outline" onClick={handleRematch} disabled={isPending}>
-            {isPending ? (
+          <Button
+            variant="outline"
+            onClick={handleRematch}
+            disabled={Boolean(pendingAction)}
+            isLoading={pendingAction === "rematch"}
+          >
+            {pendingAction === "rematch" ? (
               <LoaderCircle className="h-4 w-4 animate-spin" />
             ) : (
               <RefreshCcw className="h-4 w-4" />
             )}
-            Rerun matching
+            {pendingAction === "rematch" ? "Refreshing..." : "Rerun matching"}
           </Button>
         </div>
       </CardHeader>
@@ -209,10 +219,16 @@ export function MatchReviewTable({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleOverride(item.sheetRowId)}
-                        disabled={isPending}
+                        onClick={() => void handleOverride(item.sheetRowId)}
+                        disabled={Boolean(pendingAction)}
+                        isLoading={pendingAction === `override:${item.sheetRowId}`}
+                        aria-label={`Save override for row ${item.rowIndex}`}
                       >
-                        <Save className="h-4 w-4" />
+                        {pendingAction === `override:${item.sheetRowId}` ? (
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </TableCell>

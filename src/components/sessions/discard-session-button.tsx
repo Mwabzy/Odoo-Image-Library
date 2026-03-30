@@ -2,7 +2,7 @@
 
 import { LoaderCircle, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -22,10 +22,10 @@ export function DiscardSessionButton({
   className?: string;
 }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  function handleDiscard() {
+  async function handleDiscard() {
     const confirmed = window.confirm(
       "Discard this session and all of its uploaded rows, images, matches, and exports?"
     );
@@ -34,32 +34,34 @@ export function DiscardSessionButton({
       return;
     }
 
-    startTransition(() => {
-      fetch(`/api/session/${sessionId}`, {
+    setIsPending(true);
+
+    try {
+      const response = await fetch(`/api/session/${sessionId}`, {
         method: "DELETE"
-      })
-        .then(async (response) => {
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            throw new Error(data.error ?? "Failed to discard session.");
-          }
+      });
+      const data = await response.json().catch(() => ({}));
 
-          setLocalError(null);
-          onDeleted?.();
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to discard session.");
+      }
 
-          if (redirectTo) {
-            router.push(redirectTo);
-          }
+      setLocalError(null);
+      onDeleted?.();
 
-          router.refresh();
-        })
-        .catch((error) => {
-          const message =
-            error instanceof Error ? error.message : "Failed to discard session.";
-          setLocalError(message);
-          onError?.(message);
-        });
-    });
+      if (redirectTo) {
+        router.push(redirectTo);
+      }
+
+      router.refresh();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to discard session.";
+      setLocalError(message);
+      onError?.(message);
+    } finally {
+      setIsPending(false);
+    }
   }
 
   return (
@@ -67,15 +69,16 @@ export function DiscardSessionButton({
       <Button
         type="button"
         variant="destructive"
-        onClick={handleDiscard}
+        onClick={() => void handleDiscard()}
         disabled={isPending}
+        isLoading={isPending}
       >
         {isPending ? (
           <LoaderCircle className="h-4 w-4 animate-spin" />
         ) : (
           <Trash2 className="h-4 w-4" />
         )}
-        {label}
+        {isPending ? "Discarding..." : label}
       </Button>
       {localError ? (
         <p className="mt-2 text-sm text-rose-700">{localError}</p>
