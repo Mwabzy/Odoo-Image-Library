@@ -1,7 +1,11 @@
+import Link from "next/link";
+import { Download } from "lucide-react";
+
 import { AppShell } from "@/components/app-shell";
 import { BackgroundAssetProcessor } from "@/components/sessions/background-asset-processor";
 import { DiscardSessionButton } from "@/components/sessions/discard-session-button";
 import { MatchReviewTable } from "@/components/matches/match-review-table";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getSessionMatches, getSessionSummary } from "@/lib/session/service";
 
@@ -40,12 +44,21 @@ export default async function SessionMatchesPage({
                   {session.session.unmatchedCount} unmatched.
                 </CardDescription>
               </div>
-              <DiscardSessionButton sessionId={id} />
+              <div className="flex flex-wrap gap-3">
+                <Button asChild>
+                  <Link href={`/sessions/${id}/export`}>
+                    <Download className="h-4 w-4" />
+                    Export spreadsheet
+                  </Link>
+                </Button>
+                <DiscardSessionButton sessionId={id} />
+              </div>
             </CardHeader>
           </Card>
           <MatchReviewTable
             sessionId={id}
             items={matches.items}
+            sheetRows={session.sheetRows}
             images={session.extractedImages}
           />
         </div>

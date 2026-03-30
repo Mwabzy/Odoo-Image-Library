@@ -565,6 +565,14 @@ export async function listMatchReviewItems(
     throw new Error(error.message);
   }
 
+  function readRelatedRecord<T>(value: T | T[] | null | undefined) {
+    if (Array.isArray(value)) {
+      return value[0] ?? null;
+    }
+
+    return value ?? null;
+  }
+
   const items = ((data ?? []) as unknown as Array<{
     id: string;
     sheet_row_id: string;
@@ -574,18 +582,25 @@ export async function listMatchReviewItems(
     matched_by: string;
     status: MatchStatus;
     is_manual: boolean;
-    sheet_rows: Array<
+    sheet_rows:
       Pick<
         SheetRowRecord,
         "id" | "row_index" | "product_name" | "sku" | "variation" | "final_image_url"
       >
-    >;
-    extracted_images: Array<
+      | Array<
+          Pick<
+            SheetRowRecord,
+            "id" | "row_index" | "product_name" | "sku" | "variation" | "final_image_url"
+          >
+        >
+      | null;
+    extracted_images:
       Pick<ExtractedImageRecord, "id" | "original_name" | "relative_path">
-    >;
+      | Array<Pick<ExtractedImageRecord, "id" | "original_name" | "relative_path">>
+      | null;
   }>).map<MatchReviewItem>((item) => {
-    const sheetRow = item.sheet_rows?.[0];
-    const extractedImage = item.extracted_images?.[0];
+    const sheetRow = readRelatedRecord(item.sheet_rows);
+    const extractedImage = readRelatedRecord(item.extracted_images);
 
     return {
       matchId: item.id,

@@ -1,8 +1,14 @@
 import Link from "next/link";
-import { ArrowRight, Download, Search } from "lucide-react";
+import { ArrowRight, Download, ExternalLink, Search } from "lucide-react";
 
+import { ApproveSuggestionButton } from "@/components/matches/approve-suggestion-button";
 import { DiscardSessionButton } from "@/components/sessions/discard-session-button";
-import { MatchStatusBadge, SessionStatusBadge } from "@/components/status-badge";
+import {
+  MatchConfidenceBadge,
+  MatchDecisionBadge,
+  SessionStatusBadge,
+  isQuickApproveCandidate
+} from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -35,6 +41,23 @@ export function SessionOverview({
   logs: ProcessingLogRecord[];
 }) {
   const imageStatusMap = new Map(matches.map((match) => [match.image_id, match.status]));
+  const rowMatchMap = new Map(matches.map((match) => [match.sheet_row_id, match]));
+  const rowMap = new Map(sheetRows.map((row) => [row.id, row]));
+  const imageMatchMap = new Map<string, MatchRecord>();
+
+  for (const match of matches) {
+    if (!match.image_id) {
+      continue;
+    }
+
+    const current = imageMatchMap.get(match.image_id);
+    const currentScore = current?.confidence_score ?? -1;
+    const nextScore = match.confidence_score ?? -1;
+
+    if (!current || nextScore > currentScore) {
+      imageMatchMap.set(match.image_id, match);
+    }
+  }
 
   function resolveImageStatus(image: ExtractedImageRecord): MatchStatus {
     const mappedStatus = imageStatusMap.get(image.id);
@@ -52,6 +75,25 @@ export function SessionOverview({
     }
 
     return "unmatched";
+  }
+
+  function resolveSuggestedProduct(image: ExtractedImageRecord) {
+    const match = imageMatchMap.get(image.id);
+    const matchedRow = match ? rowMap.get(match.sheet_row_id) : null;
+
+    return matchedRow?.product_name ?? image.inferred_product ?? "Not inferred";
+  }
+
+  function resolveSuggestedImage(row: SheetRowRecord) {
+    const match = rowMatchMap.get(row.id);
+    const image = match?.image_id
+      ? extractedImages.find((record) => record.id === match.image_id)
+      : null;
+
+    return {
+      match,
+      image
+    };
   }
 
   return (
@@ -176,8 +218,8 @@ export function SessionOverview({
           <CardHeader>
             <CardTitle className="text-xl">Extracted image records</CardTitle>
             <CardDescription>
-              Normalized relative paths, inferred product and variation values, and
-              current processing state.
+              See the strongest product suggestion for each uploaded image, together
+              with the confidence score and current decision.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -186,24 +228,35 @@ export function SessionOverview({
                 <TableRow>
                   <TableHead>File</TableHead>
                   <TableHead>Relative path</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Variation</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Suggested product</TableHead>
+                  <TableHead>Confidence</TableHead>
+                  <TableHead>Decision</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {extractedImages.length ? (
-                  extractedImages.slice(0, 20).map((image) => (
-                    <TableRow key={image.id}>
-                      <TableCell className="font-medium">{image.original_name}</TableCell>
-                      <TableCell>{image.relative_path}</TableCell>
-                      <TableCell>{image.inferred_product ?? "Unknown"}</TableCell>
-                      <TableCell>{image.inferred_variation ?? "Unknown"}</TableCell>
-                      <TableCell>
-                        <MatchStatusBadge status={resolveImageStatus(image)} />
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  extractedImages.slice(0, 20).map((image) => {
+                    const match = imageMatchMap.get(image.id);
+                    const status = resolveImageStatus(image);
+
+                    return (
+                      <TableRow key={image.id}>
+                        <TableCell className="font-medium">{image.original_name}</TableCell>
+                        <TableCell>{image.relative_path}</TableCell>
+                        <TableCell>{resolveSuggestedProduct(image)}</TableCell>
+                        <TableCell>
+                          <MatchConfidenceBadge confidenceScore={match?.confidence_score} />
+                        </TableCell>
+                        <TableCell>
+                          <MatchDecisionBadge
+                            status={status}
+                            confidenceScore={match?.confidence_score}
+                            isManual={match?.is_manual}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
@@ -220,7 +273,8 @@ export function SessionOverview({
           <CardHeader>
             <CardTitle className="text-xl">Spreadsheet rows</CardTitle>
             <CardDescription>
-              Review the normalized product data stored from the uploaded sheet.
+              Review each product row, see the suggested image match, and approve a
+              strong suggestion when you are happy with it.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -231,29 +285,82 @@ export function SessionOverview({
                   <TableHead>Product</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead>Variation</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Suggested image</TableHead>
+                  <TableHead>Confidence</TableHead>
+                  <TableHead>Decision</TableHead>
+                  <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sheetRows.length ? (
-                  sheetRows.slice(0, 20).map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>{row.row_index}</TableCell>
-                      <TableCell className="font-medium">{row.product_name ?? "Unknown"}</TableCell>
-                      <TableCell>{row.sku ?? row.parent_sku ?? "Unknown"}</TableCell>
-                      <TableCell>{row.variation ?? "None"}</TableCell>
-                      <TableCell>
-                        <MatchStatusBadge
-                          status={
-                            row.status === "pending" ? "unmatched" : row.status
-                          }
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  sheetRows.slice(0, 20).map((row) => {
+                    const suggested = resolveSuggestedImage(row);
+                    const status =
+                      row.status === "pending" ? "unmatched" : row.status;
+                    const quickApprove = isQuickApproveCandidate({
+                      imageId: suggested.image?.id ?? suggested.match?.image_id,
+                      status,
+                      confidenceScore: suggested.match?.confidence_score
+                    });
+
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell>{row.row_index}</TableCell>
+                        <TableCell className="font-medium">
+                          {row.product_name ?? "Unnamed product"}
+                        </TableCell>
+                        <TableCell>{row.sku ?? row.parent_sku ?? "No SKU"}</TableCell>
+                        <TableCell>{row.variation ?? "No variation"}</TableCell>
+                        <TableCell>
+                          {suggested.image?.original_name ?? "No suggestion yet"}
+                        </TableCell>
+                        <TableCell>
+                          <MatchConfidenceBadge
+                            confidenceScore={suggested.match?.confidence_score}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <MatchDecisionBadge
+                            status={status}
+                            confidenceScore={suggested.match?.confidence_score}
+                            isManual={suggested.match?.is_manual}
+                          />
+                        </TableCell>
+                        <TableCell className="min-w-44">
+                          <div className="flex flex-wrap gap-2">
+                            {quickApprove && suggested.image ? (
+                              <ApproveSuggestionButton
+                                sessionId={session.id}
+                                sheetRowId={row.id}
+                                imageId={suggested.image.id}
+                              />
+                            ) : row.final_image_url ? (
+                              <Button asChild variant="outline" size="sm">
+                                <a
+                                  href={row.final_image_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Open URL
+                                  <ExternalLink className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            ) : (
+                              <Button asChild variant="ghost" size="sm">
+                                <Link href={`/sessions/${session.id}/matches`}>
+                                  Review
+                                  <ArrowRight className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                       No sheet rows found for this session.
                     </TableCell>
                   </TableRow>
