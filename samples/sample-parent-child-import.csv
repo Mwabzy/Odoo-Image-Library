@@ -1,0 +1,4 @@
+Type,Product Name,Parent SKU,SKU,Variation,Color,Size,Image URL
+parent,Linen Shirt,LS-001,,All Colors,,,
+child,Linen Shirt,LS-001,LS-001-NAVY,Navy,Navy,M,
+child,Linen Shirt,LS-001,LS-001-SAND,Sand,Sand,M,
