@@ -92,6 +92,48 @@ export function UploadWorkspace() {
     return (steps.filter(Boolean).length / steps.length) * 100;
   }, [acceptedImages, sessionId]);
 
+  const workflowState = useMemo(() => {
+    if (pendingAction === "sheet") {
+      return {
+        label: "Parsing spreadsheet",
+        className: "border-primary/20 bg-primary/10 text-primary"
+      };
+    }
+
+    if (pendingAction === "files" || pendingAction === "folder") {
+      return {
+        label: "Uploading images",
+        className: "border-primary/20 bg-primary/10 text-primary"
+      };
+    }
+
+    if (pendingAction === "processing") {
+      return {
+        label: "Processing session",
+        className: "border-primary/20 bg-primary/10 text-primary"
+      };
+    }
+
+    if (!sessionId) {
+      return {
+        label: "Awaiting spreadsheet",
+        className: "border-border bg-white/75 text-muted-foreground"
+      };
+    }
+
+    if (!acceptedImages) {
+      return {
+        label: "Awaiting images",
+        className: "border-amber-200 bg-amber-50 text-amber-700"
+      };
+    }
+
+    return {
+      label: "Ready to process",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-700"
+    };
+  }, [acceptedImages, pendingAction, sessionId]);
+
   function resetWorkspaceState() {
     setSessionId(null);
     setSheetName(null);
@@ -240,11 +282,77 @@ export function UploadWorkspace() {
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.5fr_0.9fr]">
+    <div className="space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45 }}
+      >
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-border/70 bg-gradient-to-r from-secondary/70 via-white to-primary/10">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <CardTitle className="text-2xl">Validation state</CardTitle>
+                <CardDescription>
+                  Follow the current step before you launch matching and background
+                  processing.
+                </CardDescription>
+              </div>
+              <div
+                className={`inline-flex w-fit items-center rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] ${workflowState.className}`}
+              >
+                {workflowState.label}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-6">
+            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-[1.5rem] border border-border bg-muted/35 p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Current status
+                </p>
+                <p className="mt-3 text-sm leading-7 text-foreground sm:text-base">
+                  {statusMessage}
+                </p>
+                <div className="mt-5 space-y-3">
+                  <Progress value={completion} />
+                  <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                    <span>{completion === 100 ? "Ready for review" : "Upload progress"}</span>
+                    <span>{Math.round(completion)}%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ValidationItem
+                  label="Spreadsheet"
+                  value={sessionId ? "Ready" : "Waiting"}
+                />
+                <ValidationItem
+                  label="Images"
+                  value={acceptedImages ? `${acceptedImages} loaded` : "Waiting"}
+                />
+                <ValidationItem label="Rows" value={String(totalRows)} />
+                <ValidationItem
+                  label="Session id"
+                  value={sessionId ? `${sessionId.slice(0, 8)}...` : "Pending"}
+                />
+              </div>
+            </div>
+
+            {errorMessage ? (
+              <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {errorMessage}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.06 }}
       >
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-border/70 bg-gradient-to-r from-primary/10 via-white to-secondary/60">
@@ -255,8 +363,8 @@ export function UploadWorkspace() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-              <div className="rounded-[1.5rem] border border-border bg-muted/40 p-4">
+            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-[1.5rem] border border-border bg-muted/40 p-4 sm:p-5">
                 <p className="text-sm font-semibold text-foreground">Path mode</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Choose how uploaded browser paths should map into product and
@@ -278,23 +386,27 @@ export function UploadWorkspace() {
                   {pathModes.find((mode) => mode.value === pathMode)?.description}
                 </p>
               </div>
-              <div className="rounded-[1.5rem] border border-border bg-white/70 p-4">
-                <p className="text-sm font-semibold text-foreground">
-                  Processing summary
-                </p>
-                <div className="mt-4 space-y-4">
-                  <Progress value={completion} />
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <SummaryValue label="Rows" value={String(totalRows)} />
-                    <SummaryValue label="Accepted images" value={String(acceptedImages)} />
-                    <SummaryValue label="Rejected" value={String(rejectedImages)} />
-                    <SummaryValue label="Headers" value={String(headers.length)} />
-                  </div>
+              <div className="rounded-[1.5rem] border border-border bg-white/70 p-4 sm:p-5">
+                <p className="text-sm font-semibold text-foreground">Session snapshot</p>
+                <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                  <SummaryValue label="Spreadsheet" value={sheetName ?? "Not uploaded"} />
+                  <SummaryValue label="Headers" value={String(headers.length)} />
+                  <SummaryValue label="Accepted images" value={String(acceptedImages)} />
+                  <SummaryValue label="Rejected" value={String(rejectedImages)} />
+                  <SummaryValue label="Path mode" value={pathModes.find((mode) => mode.value === pathMode)?.label ?? "Auto"} />
+                  <SummaryValue
+                    label="Mode"
+                    value={acceptedImages ? "Ready" : "Collecting files"}
+                  />
                 </div>
+                <p className="mt-4 text-xs leading-5 text-muted-foreground">
+                  Spreadsheet uploads and image selections stay independent so the
+                  operator can swap inputs without losing context.
+                </p>
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <UploadCard
                 icon={Sheet}
                 title="Spreadsheet"
@@ -330,22 +442,23 @@ export function UploadWorkspace() {
               />
             </div>
 
-            <div className="rounded-[1.5rem] border border-border bg-white/70 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+            <div className="rounded-[1.5rem] border border-border bg-white/70 p-4 sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl">
                   <p className="text-sm font-semibold text-foreground">
                     Extracted file preview
                   </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
                     Sampled from the current browser selection so the operator can
                     validate relative paths before processing.
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
                   {sessionId ? (
                     <DiscardSessionButton
                       sessionId={sessionId}
                       label="Discard and start again"
+                      className="w-full sm:w-auto [&>button]:w-full"
                       redirectTo={null}
                       onDeleted={resetWorkspaceState}
                       onError={(message) => {
@@ -356,7 +469,7 @@ export function UploadWorkspace() {
                   ) : null}
                   <Button
                     type="button"
-                    className="sm:w-auto"
+                    className="w-full sm:w-auto"
                     onClick={handleStartProcessing}
                     disabled={Boolean(pendingAction) || !sessionId || !acceptedImages}
                     isLoading={pendingAction === "processing"}
@@ -371,7 +484,7 @@ export function UploadWorkspace() {
                 </div>
               </div>
               <div className="mt-4">
-                <Table>
+                <Table className="min-w-[42rem]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>File</TableHead>
@@ -401,60 +514,6 @@ export function UploadWorkspace() {
                 </Table>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, delay: 0.08 }}
-        className="space-y-6"
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">Validation state</CardTitle>
-            <CardDescription>{statusMessage}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <ValidationItem
-              label="Spreadsheet ingested"
-              value={sessionId ? "Ready" : "Waiting"}
-            />
-            <ValidationItem
-              label="Image library attached"
-              value={acceptedImages ? "Ready" : "Waiting"}
-            />
-            <ValidationItem
-              label="Session id"
-              value={sessionId ? `${sessionId.slice(0, 8)}...` : "Pending"}
-            />
-            {errorMessage ? (
-              <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {errorMessage}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">Operator notes</CardTitle>
-            <CardDescription>
-              Matching happens immediately from filenames and metadata. Heavy
-              Cloudinary processing runs separately in the background.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
-            <p>
-              Low-confidence fuzzy outcomes are not auto-exported. They land in the
-              review queue so the operator keeps control over final image assignment.
-            </p>
-            <p>
-              Matched rows receive an original Cloudinary URL right away, then the
-              transparent processed URL replaces it after background preparation
-              succeeds.
-            </p>
           </CardContent>
         </Card>
       </motion.div>
@@ -522,8 +581,8 @@ function UploadCard({
   disabled?: boolean;
 }) {
   return (
-    <div className="rounded-[1.5rem] border border-border bg-white/75 p-4">
-      <div className="flex items-start justify-between gap-4">
+    <div className="rounded-[1.5rem] border border-border bg-white/75 p-4 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
             <Icon className="h-5 w-5" />
@@ -531,7 +590,7 @@ function UploadCard({
           <p className="mt-4 text-base font-semibold text-foreground">{title}</p>
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
-        <div className="rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <div className="w-fit rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {active ? "Loaded" : "Pending"}
         </div>
       </div>
@@ -559,14 +618,16 @@ function SummaryValue({ label, value }: { label: string; value: string }) {
       <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 text-lg font-semibold text-foreground">{value}</p>
+      <p className="mt-1 break-words text-base font-semibold text-foreground sm:text-lg">
+        {value}
+      </p>
     </div>
   );
 }
 
 function ValidationItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded-[1rem] border border-border bg-white/70 px-4 py-3 text-sm">
+    <div className="flex flex-col gap-1 rounded-[1rem] border border-border bg-white/70 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
       <span className="text-foreground">{label}</span>
       <span className="font-medium text-muted-foreground">{value}</span>
     </div>
