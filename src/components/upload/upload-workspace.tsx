@@ -280,7 +280,8 @@ export function UploadWorkspace() {
             <CardTitle className="text-2xl">Upload workspace</CardTitle>
             <CardDescription>
               Upload a spreadsheet with product names and an image column, then add
-              the product images you want to turn into image links.
+              the product images you want to turn into image links. For the best
+              results, keep the image file names close to the product names.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
@@ -289,6 +290,11 @@ export function UploadWorkspace() {
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Make sure your spreadsheet already has a column for images. We will
                 fill that column with the image links when you export.
+              </p>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                Try to keep image file names similar to the product names in the
+                spreadsheet. If they are not the same, they should still follow a
+                clear and predictable naming pattern so the app can match them.
               </p>
             </div>
 
