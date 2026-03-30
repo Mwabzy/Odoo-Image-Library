@@ -15,9 +15,14 @@ const serif = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Product Image Automation",
+  title: "Odoo Image Library",
   description:
-    "Upload spreadsheets and image libraries, auto-match products, remove backgrounds, and export clean ecommerce-ready image URLs."
+    "Upload a spreadsheet with product names and an image column, match pictures to the right products, and export image links for Odoo.",
+  icons: {
+    icon: "/odoo-logo.png",
+    shortcut: "/odoo-logo.png",
+    apple: "/odoo-logo.png"
+  }
 };
 
 export default function RootLayout({

@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -17,9 +18,20 @@ export function AppShell({
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
         <header className="mb-8 flex flex-col gap-6 rounded-[2rem] border border-white/70 bg-white/80 px-5 py-5 shadow-soft backdrop-blur sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-3">
-            <Badge variant="secondary" className="w-fit">
-              Odoo Image Library
-            </Badge>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative h-14 w-28 overflow-hidden rounded-[1.25rem] border border-primary/15 bg-primary/10 shadow-soft">
+                <Image
+                  src="/odoo-logo.png"
+                  alt="Odoo Image Library logo"
+                  fill
+                  className="object-cover"
+                  priority
+                />
+              </div>
+              <Badge variant="secondary" className="w-fit">
+                Odoo Image Library
+              </Badge>
+            </div>
             <div>
               <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground">
                 Turn product images into image links and match them to the right
