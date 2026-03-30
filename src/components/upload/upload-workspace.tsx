@@ -27,6 +27,7 @@ import { inferImageMetadataFromPath } from "@/lib/parsing/path-inference";
 import type { PathMode } from "@/types/domain";
 
 type PreviewRow = {
+  previewKey: string;
   name: string;
   relativePath: string;
   inferredProduct: string | null;
@@ -65,13 +66,14 @@ function resolveApiError(response: Response, payload: Record<string, unknown>, f
   return fallback;
 }
 
-function inferPreview(relativePath: string, pathMode: PathMode): PreviewRow {
+function inferPreview(relativePath: string, pathMode: PathMode, index: number): PreviewRow {
   const safePath = relativePath.replace(/\\/g, "/");
   const parts = safePath.split("/").filter(Boolean);
-  const name = parts.at(-1) ?? relativePath;
+  const name = (parts.at(-1) ?? relativePath) || `selected-file-${index + 1}`;
   const inferred = inferImageMetadataFromPath(safePath, pathMode);
 
   return {
+    previewKey: `${safePath || name}-${index}`,
     name,
     relativePath: safePath,
     inferredProduct: inferred.inferredProduct,
@@ -213,11 +215,12 @@ export function UploadWorkspace() {
     setPreviewRows(
       selectedFiles
         .slice(0, 15)
-        .map((file) =>
+        .map((file, index) =>
           inferPreview(
             (file as File & { webkitRelativePath?: string }).webkitRelativePath ??
               file.name,
-            pathMode
+            pathMode,
+            index
           )
         )
     );
@@ -441,9 +444,9 @@ export function UploadWorkspace() {
                   <TableBody>
                     {previewRows.length ? (
                       previewRows.map((row) => (
-                        <TableRow key={row.relativePath}>
+                        <TableRow key={row.previewKey}>
                           <TableCell className="font-medium">{row.name}</TableCell>
-                          <TableCell>{row.relativePath}</TableCell>
+                          <TableCell>{row.relativePath || row.name}</TableCell>
                           <TableCell>{row.inferredProduct ?? "Pending"}</TableCell>
                           <TableCell>{row.inferredVariation ?? "Pending"}</TableCell>
                         </TableRow>
