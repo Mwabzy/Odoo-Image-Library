@@ -139,6 +139,29 @@ function tokenOverlapSimilarity(left: Set<string>, right: Set<string>) {
   return 0.55 * f1 + 0.45 * jaccard;
 }
 
+function isStrongContainedMatch(
+  left: PreparedMatchText,
+  right: PreparedMatchText,
+  sharedTokenCount: number
+) {
+  if (!left.compact || !right.compact) {
+    return false;
+  }
+
+  const minimumTokenCount = Math.min(left.tokenSet.size, right.tokenSet.size);
+  if (minimumTokenCount < 3 || sharedTokenCount !== minimumTokenCount) {
+    return false;
+  }
+
+  const [shorter, longer] =
+    left.compact.length <= right.compact.length
+      ? [left.compact, right.compact]
+      : [right.compact, left.compact];
+  const compactLengthRatio = shorter.length / longer.length;
+
+  return longer.includes(shorter) && compactLengthRatio >= 0.55;
+}
+
 function comparePreparedTexts(
   image: PreparedMatchText,
   product: PreparedMatchText
@@ -176,6 +199,11 @@ function comparePreparedTexts(
     (sharedTokenCount === image.tokenSet.size || sharedTokenCount === product.tokenSet.size);
   const containsOther =
     image.compact.includes(product.compact) || product.compact.includes(image.compact);
+  const strongContainedMatch = isStrongContainedMatch(
+    image,
+    product,
+    sharedTokenCount
+  );
 
   let confidence = 0.58 * characterSimilarity + 0.42 * tokenSimilarity;
 
@@ -185,6 +213,12 @@ function comparePreparedTexts(
 
   if (fullTokenCoverage) {
     confidence += 0.02;
+  }
+
+  // When one side is a clear shortened form of the other, reward it enough to
+  // auto-match instead of forcing needless review for obvious cases.
+  if (strongContainedMatch) {
+    confidence += 0.06;
   }
 
   const finalConfidence = clampScore(confidence);

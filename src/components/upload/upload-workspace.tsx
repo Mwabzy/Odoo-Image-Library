@@ -35,6 +35,36 @@ type PreviewRow = {
 
 type PendingAction = "sheet" | "files" | "folder" | "processing" | null;
 
+async function readApiPayload(response: Response) {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    return (await response.json()) as Record<string, unknown>;
+  }
+
+  const text = await response.text();
+
+  return {
+    error: text || `Request failed with status ${response.status}.`
+  } satisfies Record<string, unknown>;
+}
+
+function resolveApiError(response: Response, payload: Record<string, unknown>, fallback: string) {
+  if (typeof payload.error === "string" && payload.error.trim()) {
+    if (response.status === 413) {
+      return "The upload is too large for the server. Try fewer images at once or smaller files.";
+    }
+
+    return payload.error;
+  }
+
+  if (response.status === 413) {
+    return "The upload is too large for the server. Try fewer images at once or smaller files.";
+  }
+
+  return fallback;
+}
+
 function inferPreview(relativePath: string, pathMode: PathMode): PreviewRow {
   const safePath = relativePath.replace(/\\/g, "/");
   const parts = safePath.split("/").filter(Boolean);
@@ -143,16 +173,18 @@ export function UploadWorkspace() {
       method: "POST",
       body: formData
     });
-    const data = await response.json();
+    const data = await readApiPayload(response);
 
     if (!response.ok) {
-      throw new Error(data.error ?? "Failed to upload spreadsheet.");
+      throw new Error(
+        resolveApiError(response, data, "Failed to upload spreadsheet.")
+      );
     }
 
-    setSessionId(data.sessionId);
+    setSessionId(String(data.sessionId ?? ""));
     setSheetName(file.name);
-    setHeaders(data.headers ?? []);
-    setTotalRows(data.totalRows ?? 0);
+    setHeaders(Array.isArray(data.headers) ? data.headers.map(String) : []);
+    setTotalRows(Number(data.totalRows ?? 0));
     setAcceptedImages(0);
     setRejectedImages(0);
     setPreviewRows([]);
@@ -204,16 +236,21 @@ export function UploadWorkspace() {
       method: "POST",
       body: formData
     });
-    const data = await response.json();
+    const data = await readApiPayload(response);
 
     if (!response.ok) {
-      throw new Error(data.error ?? "Failed to upload selected images.");
+      throw new Error(
+        resolveApiError(response, data, "Failed to upload selected images.")
+      );
     }
 
-    setAcceptedImages((current) => current + (data.accepted ?? 0));
-    setRejectedImages((current) => current + (data.rejected ?? 0));
+    const accepted = Number(data.accepted ?? 0);
+    const rejected = Number(data.rejected ?? 0);
+
+    setAcceptedImages((current) => current + accepted);
+    setRejectedImages((current) => current + rejected);
     setStatusMessage(
-      `${source === "folder" ? "Folder" : "File"} upload finished. ${data.accepted ?? 0} accepted, ${data.rejected ?? 0} rejected.`
+      `${source === "folder" ? "Folder" : "File"} upload finished. ${accepted} accepted, ${rejected} rejected.`
     );
   }
 
@@ -254,14 +291,16 @@ export function UploadWorkspace() {
         },
         body: JSON.stringify({ sessionId })
       });
-      const data = await response.json();
+      const data = await readApiPayload(response);
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Failed to process session.");
+        throw new Error(
+          resolveApiError(response, data, "Failed to process session.")
+        );
       }
 
       setStatusMessage(
-        `Matching finished. ${data.matched} matched automatically, ${data.needsReview} need review, and ${data.queuedAssetJobs ?? 0} image jobs are still running in the background.`
+        `Matching finished. ${Number(data.matched ?? 0)} matched automatically, ${Number(data.needsReview ?? 0)} need review, and ${Number(data.queuedAssetJobs ?? 0)} image jobs are still running in the background.`
       );
       router.push(`/sessions/${sessionId}`);
       router.refresh();
