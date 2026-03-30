@@ -104,8 +104,7 @@ export function RecentSessions({ sessions }: { sessions: SessionSummary[] }) {
         <div>
           <CardTitle className="text-xl">Recent sessions</CardTitle>
           <p className="mt-2 text-sm text-muted-foreground">
-            Continue processing, review low-confidence matches, or select finished
-            runs to delete.
+            Open a session to keep going, check the matches, or delete older runs.
           </p>
         </div>
       </CardHeader>

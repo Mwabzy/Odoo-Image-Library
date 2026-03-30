@@ -15,7 +15,6 @@ import { DiscardSessionButton } from "@/components/sessions/discard-session-butt
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Select } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -36,24 +35,6 @@ type PreviewRow = {
 
 type PendingAction = "sheet" | "files" | "folder" | "processing" | null;
 
-const pathModes: Array<{ value: PathMode; label: string; description: string }> = [
-  {
-    value: "auto",
-    label: "Auto",
-    description: "Infer product and variation from the deepest useful path segments."
-  },
-  {
-    value: "folder-product-variation",
-    label: "Folder / Product / Variation",
-    description: "Treat the final two folders as product then variation."
-  },
-  {
-    value: "folder-product-only",
-    label: "Folder / Product Only",
-    description: "Use the last folder as the product and ignore variation folders."
-  }
-];
-
 function inferPreview(relativePath: string, pathMode: PathMode): PreviewRow {
   const safePath = relativePath.replace(/\\/g, "/");
   const parts = safePath.split("/").filter(Boolean);
@@ -73,7 +54,7 @@ export function UploadWorkspace() {
   const sheetInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
-  const [pathMode, setPathMode] = useState<PathMode>("auto");
+  const pathMode: PathMode = "auto";
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sheetName, setSheetName] = useState<string | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
@@ -92,10 +73,14 @@ export function UploadWorkspace() {
     return (steps.filter(Boolean).length / steps.length) * 100;
   }, [acceptedImages, sessionId]);
 
+  const showSessionSnapshot = Boolean(
+    sheetName || sessionId || totalRows || acceptedImages || rejectedImages
+  );
+
   const workflowState = useMemo(() => {
     if (pendingAction === "sheet") {
       return {
-        label: "Parsing spreadsheet",
+        label: "Adding spreadsheet",
         className: "border-primary/20 bg-primary/10 text-primary"
       };
     }
@@ -109,27 +94,27 @@ export function UploadWorkspace() {
 
     if (pendingAction === "processing") {
       return {
-        label: "Processing session",
+        label: "Matching images",
         className: "border-primary/20 bg-primary/10 text-primary"
       };
     }
 
     if (!sessionId) {
       return {
-        label: "Awaiting spreadsheet",
+        label: "Waiting for spreadsheet",
         className: "border-border bg-white/75 text-muted-foreground"
       };
     }
 
     if (!acceptedImages) {
       return {
-        label: "Awaiting images",
+        label: "Waiting for images",
         className: "border-amber-200 bg-amber-50 text-amber-700"
       };
     }
 
     return {
-      label: "Ready to process",
+      label: "Ready to match",
       className: "border-emerald-200 bg-emerald-50 text-emerald-700"
     };
   }, [acceptedImages, pendingAction, sessionId]);
@@ -143,7 +128,7 @@ export function UploadWorkspace() {
     setRejectedImages(0);
     setPreviewRows([]);
     setErrorMessage(null);
-    setStatusMessage("Session discarded. Upload a spreadsheet to start a new run.");
+    setStatusMessage("Session deleted. Upload a spreadsheet to start again.");
   }
 
   async function handleSheetUpload(file: File) {
@@ -171,7 +156,7 @@ export function UploadWorkspace() {
     setAcceptedImages(0);
     setRejectedImages(0);
     setPreviewRows([]);
-    setStatusMessage("Spreadsheet parsed successfully. Add image files or a folder next.");
+    setStatusMessage("Spreadsheet uploaded. Add image files or a folder next.");
   }
 
   async function handleImageUpload(
@@ -259,7 +244,9 @@ export function UploadWorkspace() {
     }
 
     void runTask("processing", async () => {
-      setStatusMessage("Running fast filename matching and queueing image processing in the background.");
+      setStatusMessage(
+        "Matching image names with the product names in your spreadsheet."
+      );
       const response = await fetch("/api/process-session", {
         method: "POST",
         headers: {
@@ -274,7 +261,7 @@ export function UploadWorkspace() {
       }
 
       setStatusMessage(
-        `Processing completed. ${data.matched} matched, ${data.needsReview} sent to review, and ${data.queuedAssetJobs ?? 0} images queued for background processing.`
+        `Matching finished. ${data.matched} matched automatically, ${data.needsReview} need review, and ${data.queuedAssetJobs ?? 0} image jobs are still running in the background.`
       );
       router.push(`/sessions/${sessionId}`);
       router.refresh();
@@ -292,10 +279,9 @@ export function UploadWorkspace() {
           <CardHeader className="border-b border-border/70 bg-gradient-to-r from-secondary/70 via-white to-primary/10">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div>
-                <CardTitle className="text-2xl">Validation state</CardTitle>
+                <CardTitle className="text-2xl">Current progress</CardTitle>
                 <CardDescription>
-                  Follow the current step before you launch matching and background
-                  processing.
+                  This shows what is ready now and what you should do next.
                 </CardDescription>
               </div>
               <div
@@ -309,7 +295,7 @@ export function UploadWorkspace() {
             <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
               <div className="rounded-[1.5rem] border border-border bg-muted/35 p-5">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Current status
+                  What is happening
                 </p>
                 <p className="mt-3 text-sm leading-7 text-foreground sm:text-base">
                   {statusMessage}
@@ -317,7 +303,7 @@ export function UploadWorkspace() {
                 <div className="mt-5 space-y-3">
                   <Progress value={completion} />
                   <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                    <span>{completion === 100 ? "Ready for review" : "Upload progress"}</span>
+                    <span>{completion === 100 ? "Ready to continue" : "Upload progress"}</span>
                     <span>{Math.round(completion)}%</span>
                   </div>
                 </div>
@@ -358,52 +344,17 @@ export function UploadWorkspace() {
           <CardHeader className="border-b border-border/70 bg-gradient-to-r from-primary/10 via-white to-secondary/60">
             <CardTitle className="text-2xl">Upload workspace</CardTitle>
             <CardDescription>
-              Keep folder structure when present, capture relative paths, and
-              preview how the session will be parsed before you run matching.
+              Upload a spreadsheet with product names and an image column, then add
+              the product images you want to turn into image links.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-[1.5rem] border border-border bg-muted/40 p-4 sm:p-5">
-                <p className="text-sm font-semibold text-foreground">Path mode</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Choose how uploaded browser paths should map into product and
-                  variation inference.
-                </p>
-                <Select
-                  className="mt-4"
-                  value={pathMode}
-                  onChange={(event) => setPathMode(event.target.value as PathMode)}
-                  disabled={Boolean(pendingAction)}
-                >
-                  {pathModes.map((mode) => (
-                    <option key={mode.value} value={mode.value}>
-                      {mode.label}
-                    </option>
-                  ))}
-                </Select>
-                <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  {pathModes.find((mode) => mode.value === pathMode)?.description}
-                </p>
-              </div>
-              <div className="rounded-[1.5rem] border border-border bg-white/70 p-4 sm:p-5">
-                <p className="text-sm font-semibold text-foreground">Session snapshot</p>
-                <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                  <SummaryValue label="Spreadsheet" value={sheetName ?? "Not uploaded"} />
-                  <SummaryValue label="Headers" value={String(headers.length)} />
-                  <SummaryValue label="Accepted images" value={String(acceptedImages)} />
-                  <SummaryValue label="Rejected" value={String(rejectedImages)} />
-                  <SummaryValue label="Path mode" value={pathModes.find((mode) => mode.value === pathMode)?.label ?? "Auto"} />
-                  <SummaryValue
-                    label="Mode"
-                    value={acceptedImages ? "Ready" : "Collecting files"}
-                  />
-                </div>
-                <p className="mt-4 text-xs leading-5 text-muted-foreground">
-                  Spreadsheet uploads and image selections stay independent so the
-                  operator can swap inputs without losing context.
-                </p>
-              </div>
+            <div className="rounded-[1.5rem] border border-border bg-secondary/45 p-4 sm:p-5">
+              <p className="text-sm font-semibold text-foreground">Before you upload</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Make sure your spreadsheet already has a column for images. We will
+                fill that column with the image links when you export.
+              </p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -441,6 +392,20 @@ export function UploadWorkspace() {
                 disabled={!sessionId || Boolean(pendingAction)}
               />
             </div>
+
+            {showSessionSnapshot ? (
+              <div className="rounded-[1.5rem] border border-border bg-white/70 p-4 sm:p-5">
+                <p className="text-sm font-semibold text-foreground">
+                  Session snapshot
+                </p>
+                <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                  <SummaryValue label="Spreadsheet" value={sheetName ?? "Uploaded"} />
+                  <SummaryValue label="Product rows" value={String(totalRows)} />
+                  <SummaryValue label="Images added" value={String(acceptedImages)} />
+                  <SummaryValue label="Rejected files" value={String(rejectedImages)} />
+                </div>
+              </div>
+            ) : null}
 
             <div className="rounded-[1.5rem] border border-border bg-white/70 p-4 sm:p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

@@ -18,16 +18,17 @@ export function AppShell({
         <header className="mb-8 flex flex-col gap-6 rounded-[2rem] border border-white/70 bg-white/80 px-5 py-5 shadow-soft backdrop-blur sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-3">
             <Badge variant="secondary" className="w-fit">
-              Product Image Automation
+              Odoo Image Library
             </Badge>
             <div>
               <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground">
-                Match, clean, and export product imagery without losing import
-                structure.
+                Turn product images into image links and match them to the right
+                product names in your spreadsheet.
               </h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                Deterministic matching first, review workflows when confidence
-                drops, and Cloudinary-ready image outputs for ecommerce imports.
+                Upload a spreadsheet with product names and an image column, then
+                upload your pictures. The app matches image names to the listed
+                products and prepares the image links for export.
               </p>
             </div>
           </div>
