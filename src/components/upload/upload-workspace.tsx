@@ -276,71 +276,6 @@ export function UploadWorkspace() {
         transition={{ duration: 0.45 }}
       >
         <Card className="overflow-hidden">
-          <CardHeader className="border-b border-border/70 bg-gradient-to-r from-secondary/70 via-white to-primary/10">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div>
-                <CardTitle className="text-2xl">Current progress</CardTitle>
-                <CardDescription>
-                  This shows what is ready now and what you should do next.
-                </CardDescription>
-              </div>
-              <div
-                className={`inline-flex w-fit items-center rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] ${workflowState.className}`}
-              >
-                {workflowState.label}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-6">
-            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-[1.5rem] border border-border bg-muted/35 p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  What is happening
-                </p>
-                <p className="mt-3 text-sm leading-7 text-foreground sm:text-base">
-                  {statusMessage}
-                </p>
-                <div className="mt-5 space-y-3">
-                  <Progress value={completion} />
-                  <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                    <span>{completion === 100 ? "Ready to continue" : "Upload progress"}</span>
-                    <span>{Math.round(completion)}%</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <ValidationItem
-                  label="Spreadsheet"
-                  value={sessionId ? "Ready" : "Waiting"}
-                />
-                <ValidationItem
-                  label="Images"
-                  value={acceptedImages ? `${acceptedImages} loaded` : "Waiting"}
-                />
-                <ValidationItem label="Rows" value={String(totalRows)} />
-                <ValidationItem
-                  label="Session id"
-                  value={sessionId ? `${sessionId.slice(0, 8)}...` : "Pending"}
-                />
-              </div>
-            </div>
-
-            {errorMessage ? (
-              <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {errorMessage}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, delay: 0.06 }}
-      >
-        <Card className="overflow-hidden">
           <CardHeader className="border-b border-border/70 bg-gradient-to-r from-primary/10 via-white to-secondary/60">
             <CardTitle className="text-2xl">Upload workspace</CardTitle>
             <CardDescription>
@@ -479,6 +414,71 @@ export function UploadWorkspace() {
                 </Table>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.06 }}
+      >
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-border/70 bg-gradient-to-r from-secondary/70 via-white to-primary/10">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <CardTitle className="text-2xl">Current progress</CardTitle>
+                <CardDescription>
+                  This shows what is ready now and what you should do next.
+                </CardDescription>
+              </div>
+              <div
+                className={`inline-flex w-fit items-center rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] ${workflowState.className}`}
+              >
+                {workflowState.label}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-6">
+            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-[1.5rem] border border-border bg-muted/35 p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  What is happening
+                </p>
+                <p className="mt-3 text-sm leading-7 text-foreground sm:text-base">
+                  {statusMessage}
+                </p>
+                <div className="mt-5 space-y-3">
+                  <Progress value={completion} />
+                  <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                    <span>{completion === 100 ? "Ready to continue" : "Upload progress"}</span>
+                    <span>{Math.round(completion)}%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ValidationItem
+                  label="Spreadsheet"
+                  value={sessionId ? "Ready" : "Waiting"}
+                />
+                <ValidationItem
+                  label="Images"
+                  value={acceptedImages ? `${acceptedImages} loaded` : "Waiting"}
+                />
+                <ValidationItem label="Rows" value={String(totalRows)} />
+                <ValidationItem
+                  label="Session id"
+                  value={sessionId ? `${sessionId.slice(0, 8)}...` : "Pending"}
+                />
+              </div>
+            </div>
+
+            {errorMessage ? (
+              <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {errorMessage}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </motion.div>
