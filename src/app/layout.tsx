@@ -1,16 +1,17 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import { Manrope, Playfair_Display } from "next/font/google";
+import { Inter, Poppins } from "next/font/google";
 
 import "@/app/globals.css";
 
-const sans = Manrope({
+const sans = Inter({
   subsets: ["latin"],
   variable: "--font-sans"
 });
 
-const serif = Playfair_Display({
+const serif = Poppins({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-serif"
 });
 

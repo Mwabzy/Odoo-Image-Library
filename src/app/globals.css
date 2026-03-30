@@ -29,7 +29,7 @@
 
 body {
   min-height: 100vh;
-  font-family: var(--font-sans), sans-serif;
+  font-family: var(--font-sans), "Inter", sans-serif;
   background:
     radial-gradient(circle at top left, rgba(216, 180, 254, 0.45), transparent 32%),
     radial-gradient(circle at top right, rgba(168, 85, 247, 0.18), transparent 28%),
@@ -41,5 +41,5 @@ h1,
 h2,
 h3,
 .font-serif {
-  font-family: var(--font-serif), serif;
+  font-family: var(--font-serif), "Poppins", sans-serif;
 }
